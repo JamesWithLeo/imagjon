@@ -20,8 +20,19 @@ export type AuthLayoutProps = {
     description?: string;
 };
 
-export interface FormField {
+export interface JsonFieldItem {
     id: string;
-    name: string;
-    type: string;
+    fieldName: string;
+    fieldType: string;
+    nameErrorKey?: string;
+    typeErrorKey?: string;
+    enumValues?: string[] | string;
+    arrayItemType?: string;
+    [key: string]: string | number | boolean | null | undefined | string[];
+}
+export interface EditableImage {
+    id: string;
+    file: File;
+    previewUrl: string;
+    customName: string;
 }

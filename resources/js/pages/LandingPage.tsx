@@ -1,24 +1,20 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { dashboard, login } from '@/routes';
-import { register } from '@/routes';
-import UploadDocument from '../components/imageToJson/upload';
 import { Github } from 'lucide-react';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Separator } from '@/components/ui/separator';
+import { dashboard } from '@/routes';
+import UploadDocument from '../components/imageToJson/uploadDocument';
 
 export default function LandingPage() {
     const { auth } = usePage().props;
-    // if (ImageSources.uploadedImages)
-    //     return <h1>{ImageSources.uploadedImages}</h1>;
 
     return (
         <>
             <Head title="Imagjon" />
 
-            <div className="relative flex min-h-screen w-full flex-col items-center bg-[#FDFDFC] px-6 text-[#1b1b18] lg:justify-start lg:px-8 dark:bg-[#0a0a0a] dark:text-white">
-                <header className="sticky top-0 z-10 mb-6 flex h-20 w-full flex-col items-center text-sm backdrop-blur-lg not-has-[nav]:hidden dark:bg-[#0a0a0a]/80">
-                    <nav className="flex h-full w-full max-w-4xl items-center justify-between px-6">
+            <div className="relative flex min-h-screen w-full flex-col items-center bg-[#FDFDFC] text-[#1b1b18] lg:justify-start dark:bg-[#0a0a0a] dark:text-white">
+                <header className="sticky top-0 z-20 flex h-20 w-full flex-col items-center border-b text-sm backdrop-blur-lg not-has-[nav]:hidden dark:bg-[#0a0a0a]/80">
+                    <nav className="flex h-full w-full max-w-4xl items-center justify-between px-4">
                         <h1 className="text-lg">Imagjon</h1>
 
                         {auth.user ? (
@@ -42,7 +38,7 @@ export default function LandingPage() {
                                 >
                                     Register
                                 </Link> */}
-                                <Link
+                                {/* <Link
                                     href={'/'}
 
                                     className={cn(
@@ -58,6 +54,7 @@ export default function LandingPage() {
                                     orientation="vertical"
                                     className="h-full"
                                 />
+                                 */}
                                 <Link
                                     href={'/'}
 

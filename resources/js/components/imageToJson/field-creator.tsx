@@ -1,5 +1,9 @@
 'use client';
 
+import { router, usePage } from '@inertiajs/react';
+import { X, Plus } from 'lucide-react';
+import { useState } from 'react';
+import type { DialogProps } from 'vaul';
 import {
     Drawer,
     DrawerClose,
@@ -8,11 +12,6 @@ import {
     DrawerHeader,
     DrawerTitle,
 } from '@/components/ui/drawer';
-import { Button } from '../ui/button';
-import { DialogProps } from 'vaul';
-import React, { useState } from 'react';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
 import {
     Select,
     SelectContent,
@@ -21,55 +20,139 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { X, Plus } from 'lucide-react';
-import { Separator } from '../ui/separator';
+import type { JsonFieldItem } from '@/types';
+import { Button } from '../ui/button';
 import {
     Field,
     FieldDescription,
+    FieldError,
     FieldGroup,
     FieldLabel,
-    FieldSet,
 } from '../ui/field';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Separator } from '../ui/separator';
 import { Textarea } from '../ui/textarea';
-import { FormField } from '@/types';
 
-// Corrected items to map actual schema data types
 const DATA_TYPES = [
     { label: 'Text', value: 'text' },
-    { label: 'Number', value: 'number' },
+    { label: 'Integer', value: 'integer' },
+    { label: 'Decimal / Float', value: 'decimal' },
     { label: 'Boolean', value: 'boolean' },
     { label: 'Date', value: 'date' },
+    { label: 'Enum', value: 'enum' },
+    { label: 'Array', value: 'array' },
 ];
 
-export default function FieldCreator({
-    fields,
-    setFields,
-    ...props
-}: {
-    fields: FormField[];
-    setFields: React.Dispatch<React.SetStateAction<FormField[]>>;
-} & DialogProps) {
+const parseEnumValues = (raw: string | string[] | undefined) => {
+    if (Array.isArray(raw)) {
+        return raw
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0);
+    }
+
+    return String(raw ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+};
+
+export default function FieldCreator({ ...props }: DialogProps) {
+    const { jsonFieldsAndContext } = usePage().props;
+
+    const [fields, setFields] = useState<JsonFieldItem[]>(
+        Array.isArray(jsonFieldsAndContext.fields) &&
+            jsonFieldsAndContext.fields.length >= 1
+            ? jsonFieldsAndContext.fields
+            : [
+                  {
+                      id: crypto.randomUUID(),
+                      fieldName: '',
+                      fieldType: '',
+                      nameErrorKey: '',
+                      typeErrorKey: '',
+                      enumValues: '',
+                      arrayItemType: '',
+                  },
+              ],
+    );
+
     const handleAddField = () => {
         setFields((prev) => [
             ...prev,
-            { id: crypto.randomUUID(), name: '', type: 'text' },
+            {
+                id: crypto.randomUUID(),
+                fieldName: '',
+                fieldType: '',
+                nameErrorKey: '',
+                typeErrorKey: '',
+                enumValues: '',
+                arrayItemType: '',
+            },
         ]);
     };
 
     const handleRemoveField = (id: string) => {
-        // Keep at least one row visible if preferred, or allow clearing all
-        setFields((prev) => prev.filter((field) => field.id !== id));
+        if (fields.length > 1) {
+            setFields((prev) => prev.filter((field) => field.id !== id));
+        }
     };
 
     const handleFieldChange = (
         id: string,
-        key: keyof FormField,
+        key: keyof JsonFieldItem,
         value: string,
     ) => {
         setFields((prev) =>
             prev.map((field) =>
                 field.id === id ? { ...field, [key]: value } : field,
             ),
+        );
+    };
+
+    const handleFieldSave = () => {
+        const cleanedFields = fields
+            .filter((field) => field.fieldName.trim() !== '')
+            .map((field) => {
+                const baseField = {
+                    id: field.id,
+                    fieldName: field.fieldName.trim(),
+                    fieldType: field.fieldType,
+                };
+
+                if (field.fieldType === 'enum') {
+                    return {
+                        ...baseField,
+                        enumValues: parseEnumValues(field.enumValues),
+                    };
+                }
+
+                if (field.fieldType === 'array') {
+                    return {
+                        ...baseField,
+                        arrayItemType: String(field.arrayItemType ?? '').trim(),
+                    };
+                }
+
+                return baseField;
+            });
+
+        const context = document.getElementById(
+            'context',
+        ) as HTMLTextAreaElement;
+
+        router.post(
+            '/set-fields',
+            { fields: cleanedFields, context: context.value },
+            {
+                preserveScroll: false,
+                onSuccess: () => {
+                    props.onOpenChange?.(false);
+                },
+                onError: (e) => {
+                    console.error('Validation failed:', e);
+                },
+            },
         );
     };
 
@@ -80,40 +163,49 @@ export default function FieldCreator({
                     <DrawerTitle>Add data fields</DrawerTitle>
                 </DrawerHeader>
                 <section className="flex flex-1 flex-col justify-between overflow-hidden">
-                    <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6">
+                    <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-6">
                         {fields.length > 0 && (
-                            <div className="grid grid-cols-[2fr_1fr_min-content] items-center gap-x-4 gap-y-2">
+                            <div className="grid grid-cols-[2fr_1fr] items-center gap-x-4 gap-y-2">
                                 <Label>Field name</Label>
                                 <Label>Data type</Label>
-                                <div className="w-9" />{' '}
-                                {/* Visual spacing block balancing the action row button */}
-                                {/* Dynamic Field Input Rows */}
                                 {fields.map((field) => (
-                                    <React.Fragment key={field.id}>
+                                    <Field
+                                        key={field.id}
+                                        className="col-span-2 grid grid-cols-[2fr_1fr_min-content]"
+                                    >
                                         <Input
-                                            value={field.name}
+                                            aria-invalid={
+                                                field.fieldName === ''
+                                            }
+                                            value={field.fieldName}
                                             onChange={(e) =>
                                                 handleFieldChange(
                                                     field.id,
-                                                    'name',
+                                                    'fieldName',
                                                     e.target.value,
                                                 )
                                             }
-                                            placeholder="e.g., price, description, stock "
+                                            placeholder="e.g., price, description, stock"
                                             required
                                         />
 
                                         <Select
-                                            value={field.type}
+                                            value={field.fieldType}
                                             onValueChange={(value) =>
                                                 handleFieldChange(
                                                     field.id,
-                                                    'type',
+                                                    'fieldType',
                                                     value,
                                                 )
                                             }
+                                            defaultValue=""
                                         >
-                                            <SelectTrigger className="w-full">
+                                            <SelectTrigger
+                                                className="w-full"
+                                                aria-invalid={
+                                                    field.fieldType === ''
+                                                }
+                                            >
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -132,17 +224,82 @@ export default function FieldCreator({
 
                                         <Button
                                             variant="ghost"
-                                            size="icon"
                                             type="button"
                                             onClick={() =>
                                                 handleRemoveField(field.id)
                                             }
-                                            disabled={fields.length === 1}
-                                            className={`${fields.length <= 1 ? 'cursor-not-allowed' : 'cursor-pointer'}text-muted-foreground transition-colors hover:text-destructive disabled:opacity-30 disabled:hover:text-muted-foreground`}
+                                            className={`${fields.length <= 1 ? 'cursor-not-allowed' : 'cursor-pointer'} text-muted-foreground transition-colors hover:text-destructive disabled:opacity-30 disabled:hover:text-muted-foreground`}
                                         >
                                             <X />
                                         </Button>
-                                    </React.Fragment>
+
+                                        {field.fieldName === '' && (
+                                            <FieldError>
+                                                Field name cannot be empty
+                                            </FieldError>
+                                        )}
+                                        {field.fieldType === 'enum' && (
+                                            <div className="col-span-3">
+                                                <FieldLabel>
+                                                    Enum values
+                                                </FieldLabel>
+                                                <Textarea
+                                                    rows={2}
+                                                    value={
+                                                        Array.isArray(
+                                                            field.enumValues,
+                                                        )
+                                                            ? field.enumValues.join(
+                                                                  ', ',
+                                                              )
+                                                            : String(
+                                                                  field.enumValues ??
+                                                                      '',
+                                                              )
+                                                    }
+                                                    onChange={(e) =>
+                                                        handleFieldChange(
+                                                            field.id,
+                                                            'enumValues',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    placeholder="red, green, blue"
+                                                />
+                                                <FieldDescription>
+                                                    Add the accepted enum
+                                                    options, separated by
+                                                    commas.
+                                                </FieldDescription>
+                                            </div>
+                                        )}
+
+                                        {field.fieldType === 'array' && (
+                                            <div className="col-span-3">
+                                                <FieldLabel>
+                                                    Array item type
+                                                </FieldLabel>
+                                                <Input
+                                                    value={
+                                                        field.arrayItemType ??
+                                                        ''
+                                                    }
+                                                    onChange={(e) =>
+                                                        handleFieldChange(
+                                                            field.id,
+                                                            'arrayItemType',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    placeholder="string, number, boolean"
+                                                />
+                                                <FieldDescription>
+                                                    Optional item type hint for
+                                                    the array.
+                                                </FieldDescription>
+                                            </div>
+                                        )}
+                                    </Field>
                                 ))}
                             </div>
                         )}
@@ -160,43 +317,31 @@ export default function FieldCreator({
                         </div>
                     </div>
 
-                    <div className="px-4 py-4">
-                        <FieldSet>
-                            <FieldGroup>
-                                <Field>
-                                    <FieldLabel htmlFor="context">
-                                        Context
-                                    </FieldLabel>
-                                    <Textarea
-                                        rows={4}
-                                        id="context"
-                                        placeholder="Adding context guides the processing engine on how to handle structural edge cases or unique fields."
-                                    />
-                                    <FieldDescription>
-                                        Provide specific hints, schemas, or
-                                        parsing rules to help the parser extract
-                                        data from your images more accurately.
-                                    </FieldDescription>
-                                </Field>
-                            </FieldGroup>
-                        </FieldSet>
-                    </div>
-                    <DrawerFooter className="mx-auto flex w-full flex-col justify-end gap-4">
+                    <FieldGroup className="px-4 py-4">
+                        <Field>
+                            <FieldLabel htmlFor="context">Context</FieldLabel>
+                            <Textarea
+                                rows={4}
+                                defaultValue={jsonFieldsAndContext.context}
+                                id="context"
+                                placeholder="Adding context guides the processing engine on how to handle structural edge cases or unique fields."
+                            />
+                            <FieldDescription>
+                                Provide specific hints, schemas, or parsing
+                                rules to help the parser extract data from your
+                                images more accurately.
+                            </FieldDescription>
+                        </Field>
+                    </FieldGroup>
+                    <DrawerFooter className="mx-auto flex w-full flex-row justify-end gap-4">
                         <Button
-                            onClick={() => {
-                                console.log(fields);
-                                setFields(fields);
-                            }}
+                            onClick={handleFieldSave}
+                            disabled={fields.length <= 0}
                         >
                             Save
                         </Button>
-                        <DrawerClose className="">
-                            <Button
-                                className="w-full"
-                                variant="outline"
-                                type="button"
-                                // onClick={() => setIsOpen(false)}
-                            >
+                        <DrawerClose asChild>
+                            <Button variant="outline" type="button">
                                 Cancel
                             </Button>
                         </DrawerClose>

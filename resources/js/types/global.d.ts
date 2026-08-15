@@ -1,4 +1,5 @@
 import type { Auth } from '@/types/auth';
+import type { JsonFieldItem } from './ui';
 
 declare module 'react' {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -13,9 +14,7 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             sidebarOpen: boolean;
-            ImageSources: {
-                uploadedImages: string[] | null;
-            };
+            jsonFieldsAndContext: { fields: JsonFieldItem[]; context: string };
             [key: string]: unknown;
         };
     }

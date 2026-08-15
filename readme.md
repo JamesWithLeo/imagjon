@@ -61,6 +61,6 @@ Imagjon is intentionally designed to be cloned and executed immediately with **z
 
 1. **Clone the repository**
     ```bash
-    git clone [https://github.com/JamesWithLeo/imagjon.git](https://github.com/JamesWithLeo/imagjon.git)
+    git clone https://github.com/JamesWithLeo/imagjon.git
     cd imagjon
     ```
