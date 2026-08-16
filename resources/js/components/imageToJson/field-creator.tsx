@@ -158,21 +158,26 @@ export default function FieldCreator({ ...props }: DialogProps) {
 
     return (
         <Drawer {...props} direction="right">
-            <DrawerContent className="flex h-full w-full flex-col select-none">
+            <DrawerContent className="flex h-full w-2xl flex-col select-none md:min-w-2xl">
                 <DrawerHeader className="flex h-20 w-full flex-row items-center">
                     <DrawerTitle>Add data fields</DrawerTitle>
                 </DrawerHeader>
                 <section className="flex flex-1 flex-col justify-between overflow-hidden">
-                    <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-6">
+                    <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-4">
                         {fields.length > 0 && (
                             <div className="grid grid-cols-[2fr_1fr] items-center gap-x-4 gap-y-2">
-                                <Label>Field name</Label>
-                                <Label>Data type</Label>
                                 {fields.map((field) => (
                                     <Field
                                         key={field.id}
-                                        className="col-span-2 grid grid-cols-[2fr_1fr_min-content]"
+                                        className={`col-span-2 grid grid-cols-[2fr_1fr_min-content] rounded bg-secondary p-4`}
                                     >
+                                        <Label className="col-start-1">
+                                            Field name
+                                        </Label>
+                                        <Label className="col-start-2">
+                                            Data type
+                                        </Label>
+                                        <div></div>
                                         <Input
                                             aria-invalid={
                                                 field.fieldName === ''
@@ -185,6 +190,7 @@ export default function FieldCreator({ ...props }: DialogProps) {
                                                     e.target.value,
                                                 )
                                             }
+                                            className="bg-background"
                                             placeholder="e.g., price, description, stock"
                                             required
                                         />
@@ -201,7 +207,7 @@ export default function FieldCreator({ ...props }: DialogProps) {
                                             defaultValue=""
                                         >
                                             <SelectTrigger
-                                                className="w-full"
+                                                className="w-full bg-background"
                                                 aria-invalid={
                                                     field.fieldType === ''
                                                 }
@@ -239,12 +245,13 @@ export default function FieldCreator({ ...props }: DialogProps) {
                                             </FieldError>
                                         )}
                                         {field.fieldType === 'enum' && (
-                                            <div className="col-span-3">
+                                            <Field className="col-span-3">
                                                 <FieldLabel>
                                                     Enum values
                                                 </FieldLabel>
                                                 <Textarea
                                                     rows={2}
+                                                    className="bg-background"
                                                     value={
                                                         Array.isArray(
                                                             field.enumValues,
@@ -271,11 +278,11 @@ export default function FieldCreator({ ...props }: DialogProps) {
                                                     options, separated by
                                                     commas.
                                                 </FieldDescription>
-                                            </div>
+                                            </Field>
                                         )}
 
                                         {field.fieldType === 'array' && (
-                                            <div className="col-span-3">
+                                            <Field className="col-span-3">
                                                 <FieldLabel>
                                                     Array item type
                                                 </FieldLabel>
@@ -291,13 +298,14 @@ export default function FieldCreator({ ...props }: DialogProps) {
                                                             e.target.value,
                                                         )
                                                     }
+                                                    className="bg-background"
                                                     placeholder="string, number, boolean"
                                                 />
                                                 <FieldDescription>
                                                     Optional item type hint for
                                                     the array.
                                                 </FieldDescription>
-                                            </div>
+                                            </Field>
                                         )}
                                     </Field>
                                 ))}

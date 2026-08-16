@@ -2,7 +2,7 @@ import { useForm, usePage } from '@inertiajs/react';
 import imageCompression from 'browser-image-compression';
 import { AlertCircle, Upload, X } from 'lucide-react';
 import React from 'react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -33,17 +33,18 @@ import FieldCreator from './field-creator';
 
 export default function UploadDocument() {
     const { jsonFieldsAndContext } = usePage().props;
-    const { processing, errors } = useForm({
-        images: [] as File[],
+    const { processing, setData, data } = useForm({
+        images: [] as EditableImage[],
+        context: jsonFieldsAndContext?.context || '',
     });
-    const [images, setImages] = useState<EditableImage[]>([]);
-    const [activeReplaceId, setActiveReplaceId] = useState<string | null>(null);
     const [openedFieldCreator, setOpenedFieldCreator] =
         useState<boolean>(false);
     const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
 
+    // const [activeReplaceId, setActiveReplaceId] = useState<string | null>(null);
+
     // Single hidden input reference for handling all inline replacements
-    const replaceInputRef = useRef<HTMLInputElement>(null);
+    // const replaceInputRef = useRef<HTMLInputElement>(null);
 
     // const triggerReplace = (id: string) => {
     //     setActiveReplaceId(id);
@@ -54,40 +55,45 @@ export default function UploadDocument() {
     //         replaceInputRef.current.click();
     //     }
     // };
-    const handleReplaceFileChange = (
-        e: React.ChangeEvent<HTMLInputElement>,
-    ) => {
-        const file = e.target.files?.[0];
 
-        if (!file || !activeReplaceId) {
-            return;
-        }
+    // const handleReplaceFileChange = (
+    //     e: React.ChangeEvent<HTMLInputElement>,
+    // ) => {
+    //     const file = e.target.files?.[0];
 
-        setImages((prev) =>
-            prev.map((item) => {
-                if (item.id === activeReplaceId) {
-                    URL.revokeObjectURL(item.previewUrl);
+    //     if (!file || !activeReplaceId) {
+    //         return;
+    //     }
 
-                    return {
-                        ...item,
-                        file: file,
-                        previewUrl: URL.createObjectURL(file),
-                        customName: file.name.replace(/\.[^/.]+$/, ''),
-                    };
-                }
+    //     setData((prevData) => {
+    //         const updatedImages = prevData.images.map((item) => {
+    //             if (item.id === activeReplaceId) {
+    //                 URL.revokeObjectURL(item.previewUrl);
+    //             }
 
-                return item;
-            }),
-        );
-        setActiveReplaceId(null);
-    };
+    //             return {
+    //                 ...item,
+    //                 file: file,
+    //                 previewUrl: URL.createObjectURL(file),
+    //                 customName: file.name.replace(/\.[^/.]+$/, ''),
+    //             };
+    //         });
 
-    const handleValueChange = (incomingFiles: File[]) => {
+    //         return {
+    //             ...prevData,
+    //             images: updatedImages,
+    //         };
+    //     });
+    //     setActiveReplaceId(null);
+    // };
+
+    const handleValueChange = async (incomingFiles: File[]) => {
         // SCENARIO B: Brand new main files appended via Drag & Drop or Browse Trigger
-        setImages((prev) => {
+        setData((prevData) => {
+            // 1. Filter out duplicates based on file properties
             const uniqueFiles = incomingFiles.filter(
                 (newFile) =>
-                    !prev.some(
+                    !prevData.images.some(
                         (existing) =>
                             existing.file.name === newFile.name &&
                             existing.file.size === newFile.size &&
@@ -95,6 +101,7 @@ export default function UploadDocument() {
                     ),
             );
 
+            // 2. Map unique incoming files into your EditableImage model
             const newEntries: EditableImage[] = uniqueFiles.map((file) => ({
                 id: crypto.randomUUID(),
                 file,
@@ -102,20 +109,59 @@ export default function UploadDocument() {
                 customName: file.name.replace(/\.[^/.]+$/, ''),
             }));
 
-            return [...prev, ...newEntries];
+            // 3. Return the updated form state object
+            return {
+                ...prevData,
+                images: [...prevData.images, ...newEntries],
+            };
         });
+
+        // setImages((prev) => {
+        //     const uniqueFiles = incomingFiles.filter(
+        //         (newFile) =>
+        //             !prev.some(
+        //                 (existing) =>
+        //                     existing.file.name === newFile.name &&
+        //                     existing.file.size === newFile.size &&
+        //                     existing.file.lastModified === newFile.lastModified,
+        //             ),
+        //     );
+
+        //     const newEntries: EditableImage[] = uniqueFiles.map((file) => ({
+        //         id: crypto.randomUUID(),
+        //         file,
+        //         previewUrl: URL.createObjectURL(file),
+        //         customName: file.name.replace(/\.[^/.]+$/, ''),
+        //     }));
+
+        //     return [...prev, ...newEntries];
+        // });
     };
 
     const handleRemove = (id: string) => {
-        setImages((prev) => {
-            const target = prev.find((img) => img.id === id);
+        setData((prevData) => {
+            const target = prevData.images.find((img) => img.id === id);
 
             if (target) {
                 URL.revokeObjectURL(target.previewUrl);
             }
 
-            return prev.filter((img) => img.id !== id);
+            // return prevData.filter((img) => img.id !== id);
+
+            return {
+                ...prevData,
+                images: prevData.images.filter((img) => img.id !== id),
+            };
         });
+        // setImages((prev) => {
+        //     const target = prev.find((img) => img.id === id);
+
+        //     if (target) {
+        //         URL.revokeObjectURL(target.previewUrl);
+        //     }
+
+        //     return prev.filter((img) => img.id !== id);
+        // });
     };
 
     // const handleRename = (id: string, newName: string) => {
@@ -127,7 +173,7 @@ export default function UploadDocument() {
     // };
 
     const submitImages = async () => {
-        const formData = new FormData();
+        // const formData = new FormData();
         const options = {
             maxSizeMB: 1,
             maxWidthOrHeight: 1920,
@@ -136,55 +182,64 @@ export default function UploadDocument() {
 
         try {
             const compressedFiles = await Promise.all(
-                images.map(async (img) => {
-                    return await imageCompression(img.file, options);
+                data.images.map(async (img) => {
+                    const compresedFile = await imageCompression(
+                        img.file,
+                        options,
+                    );
+
+                    return { ...img, file: compresedFile };
                 }),
             );
+            setData((prev) => ({ ...prev, images: compressedFiles }));
 
-            const schemaFields = Array.isArray(jsonFieldsAndContext?.fields)
-                ? jsonFieldsAndContext.fields
-                : [];
+            // const schemaFields = Array.isArray(jsonFieldsAndContext?.fields)
+            //     ? jsonFieldsAndContext.fields
+            //     : [];
 
-            compressedFiles.forEach((file, index) => {
-                const originalFileName = images[index].file.name;
-                formData.append(`images[${index}]`, file, originalFileName);
-                formData.append(
-                    `custom_names[${index}]`,
-                    images[index].customName ?? '',
-                );
-            });
+            // compressedFiles.forEach((file, index) => {
+            //     const originalFileName = images[index].file.name;
+            //     formData.append(`images[${index}]`, file, originalFileName);
+            //     formData.append(
+            //         `custom_names[${index}]`,
+            //         images[index].customName ?? '',
+            //     );
+            // });
 
-            formData.append('fields', JSON.stringify(schemaFields));
-            formData.append(
-                'context',
-                typeof jsonFieldsAndContext?.context === 'string'
-                    ? jsonFieldsAndContext.context
-                    : '',
-            );
+            // formData.append('fields', JSON.stringify(schemaFields));
+            // formData.append(
+            //     'context',
+            //     typeof jsonFieldsAndContext?.context === 'string'
+            //         ? jsonFieldsAndContext.context
+            //         : '',
+            // );
 
-            const response = await fetch('/imageToJson/upload', {
-                method: 'POST',
-                headers: {
-                    Accept: 'application/json',
-                    'X-CSRF-TOKEN':
-                        (
-                            document.querySelector(
-                                'meta[name="csrf-token"]',
-                            ) as HTMLMetaElement
-                        )?.content || '',
-                },
-                body: formData,
-            });
+            // const response = await fetch('/imageToJson/upload', {
+            //     method: 'POST',
+            //     headers: {
+            //         Accept: 'application/json',
+            //         'X-CSRF-TOKEN':
+            //             (
+            //                 document.querySelector(
+            //                     'meta[name="csrf-token"]',
+            //                 ) as HTMLMetaElement
+            //             )?.content || '',
+            //     },
+            //     body: formData,
+            // });
 
-            const responseData = await response.json();
-            console.log('response:', responseData);
+            // const responseData = await response.json();
+            // console.log('response:', responseData);
         } catch (error) {
             console.error('Error processing files:', error);
+        } finally {
+            console.log('Final data to submit:', data);
         }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log(jsonFieldsAndContext);
         await submitImages();
     };
 
@@ -196,13 +251,13 @@ export default function UploadDocument() {
             >
                 <div className="flex h-full w-full flex-col items-center">
                     <div className="w-full max-w-xl">
-                        <input
+                        {/* <input
                             type="file"
                             ref={replaceInputRef}
                             onChange={handleReplaceFileChange}
                             accept="image/png, image/jpeg, image/jpg"
                             className="hidden"
-                        />
+                        /> */}
                         <label className="mb-2 block text-sm font-medium text-gray-700">
                             Upload folder or images (accepts: png, jpg & webp
                             formats)
@@ -210,7 +265,7 @@ export default function UploadDocument() {
 
                         {/* Primary Upload Input Section */}
                         <FileUpload
-                            value={images.map((img) => img.file)}
+                            value={data.images.map((img) => img.file)}
                             onValueChange={handleValueChange}
                             accept="image/png, image/jpeg, image/jpg, image/webp"
                             multiple
@@ -237,22 +292,26 @@ export default function UploadDocument() {
                                         Browse files
                                     </Button>
                                 </FileUploadTrigger>
-                                {images.length >= 1 && (
+                                {data.images.length >= 1 && (
                                     <Badge variant={'secondary'} asChild>
                                         <button
                                             onClick={(e) => {
                                                 e.preventDefault();
-                                                setImages([]);
+                                                // setImages([]);
+                                                setData((prev) => ({
+                                                    ...prev,
+                                                    images: [],
+                                                }));
                                             }}
                                         >
-                                            {images.length} image selected
+                                            {data.images.length} image selected
                                             <X />
                                         </button>
                                     </Badge>
                                 )}
                             </FileUploadDropzone>
                             <FileUploadList>
-                                {images.map((file) => (
+                                {data.images.map((file) => (
                                     <FileUploadItem
                                         key={file.id}
                                         value={file.file}
@@ -292,12 +351,6 @@ export default function UploadDocument() {
                                     </Alert>
                                 )}
                         </div>
-
-                        {errors.images && (
-                            <p className="mt-1 text-xs text-red-500">
-                                {errors.images}
-                            </p>
-                        )}
                     </div>
                 </div>
 
@@ -318,7 +371,7 @@ export default function UploadDocument() {
                         onClick={() => setConfirmOpen(true)}
                         disabled={
                             processing ||
-                            images.length === 0 ||
+                            data.images.length === 0 ||
                             jsonFieldsAndContext?.fields.length === 0
                         }
                         size={'sm'}
@@ -340,7 +393,7 @@ export default function UploadDocument() {
                     <DialogHeader>
                         <DialogTitle>Confirm Generate JSON</DialogTitle>
                         <DialogDescription>
-                            {images.length} image(s) will be processed.
+                            {data.images.length} image(s) will be processed.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -394,7 +447,7 @@ export default function UploadDocument() {
                                 }}
                                 disabled={
                                     processing ||
-                                    images.length === 0 ||
+                                    data.images.length === 0 ||
                                     jsonFieldsAndContext.fields.length === 0
                                 }
                             >
