@@ -1,13 +1,12 @@
 import { useForm, usePage } from '@inertiajs/react';
 import imageCompression from 'browser-image-compression';
-import { AlertCircle, Upload, X } from 'lucide-react';
+import { AlertCircle, EyeOffIcon, Upload, EyeIcon, X } from 'lucide-react';
 import React from 'react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
-    DialogClose,
     DialogDescription,
     DialogFooter,
     DialogHeader,
@@ -26,69 +25,30 @@ import {
 import type { EditableImage } from '@/types/ui';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Badge } from '../ui/badge';
-import { Input } from '../ui/input';
+import { Field, FieldDescription, FieldLabel } from '../ui/field';
+import {
+    InputGroup,
+    InputGroupAddon,
+    InputGroupInput,
+} from '../ui/input-group';
 import { Label } from '../ui/label';
 import { Spinner } from '../ui/spinner';
 import FieldCreator from './field-creator';
 
 export default function UploadDocument() {
     const { jsonFieldsAndContext } = usePage().props;
-    const { processing, setData, data } = useForm({
+    const { processing, setData, data, post, transform } = useForm({
         images: [] as EditableImage[],
         context: jsonFieldsAndContext?.context || '',
+        apiKey: '',
     });
+
     const [openedFieldCreator, setOpenedFieldCreator] =
         useState<boolean>(false);
     const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
-
-    // const [activeReplaceId, setActiveReplaceId] = useState<string | null>(null);
-
-    // Single hidden input reference for handling all inline replacements
-    // const replaceInputRef = useRef<HTMLInputElement>(null);
-
-    // const triggerReplace = (id: string) => {
-    //     setActiveReplaceId(id);
-
-    //     if (replaceInputRef.current) {
-    //         // Reset the value so the onChange fires even if the same file name is chosen
-    //         replaceInputRef.current.value = '';
-    //         replaceInputRef.current.click();
-    //     }
-    // };
-
-    // const handleReplaceFileChange = (
-    //     e: React.ChangeEvent<HTMLInputElement>,
-    // ) => {
-    //     const file = e.target.files?.[0];
-
-    //     if (!file || !activeReplaceId) {
-    //         return;
-    //     }
-
-    //     setData((prevData) => {
-    //         const updatedImages = prevData.images.map((item) => {
-    //             if (item.id === activeReplaceId) {
-    //                 URL.revokeObjectURL(item.previewUrl);
-    //             }
-
-    //             return {
-    //                 ...item,
-    //                 file: file,
-    //                 previewUrl: URL.createObjectURL(file),
-    //                 customName: file.name.replace(/\.[^/.]+$/, ''),
-    //             };
-    //         });
-
-    //         return {
-    //             ...prevData,
-    //             images: updatedImages,
-    //         };
-    //     });
-    //     setActiveReplaceId(null);
-    // };
+    const [showApiKey, setShowApiKey] = useState<boolean>(false);
 
     const handleValueChange = async (incomingFiles: File[]) => {
-        // SCENARIO B: Brand new main files appended via Drag & Drop or Browse Trigger
         setData((prevData) => {
             // 1. Filter out duplicates based on file properties
             const uniqueFiles = incomingFiles.filter(
@@ -115,27 +75,6 @@ export default function UploadDocument() {
                 images: [...prevData.images, ...newEntries],
             };
         });
-
-        // setImages((prev) => {
-        //     const uniqueFiles = incomingFiles.filter(
-        //         (newFile) =>
-        //             !prev.some(
-        //                 (existing) =>
-        //                     existing.file.name === newFile.name &&
-        //                     existing.file.size === newFile.size &&
-        //                     existing.file.lastModified === newFile.lastModified,
-        //             ),
-        //     );
-
-        //     const newEntries: EditableImage[] = uniqueFiles.map((file) => ({
-        //         id: crypto.randomUUID(),
-        //         file,
-        //         previewUrl: URL.createObjectURL(file),
-        //         customName: file.name.replace(/\.[^/.]+$/, ''),
-        //     }));
-
-        //     return [...prev, ...newEntries];
-        // });
     };
 
     const handleRemove = (id: string) => {
@@ -146,34 +85,14 @@ export default function UploadDocument() {
                 URL.revokeObjectURL(target.previewUrl);
             }
 
-            // return prevData.filter((img) => img.id !== id);
-
             return {
                 ...prevData,
                 images: prevData.images.filter((img) => img.id !== id),
             };
         });
-        // setImages((prev) => {
-        //     const target = prev.find((img) => img.id === id);
-
-        //     if (target) {
-        //         URL.revokeObjectURL(target.previewUrl);
-        //     }
-
-        //     return prev.filter((img) => img.id !== id);
-        // });
     };
 
-    // const handleRename = (id: string, newName: string) => {
-    //     setImages((prev) =>
-    //         prev.map((img) =>
-    //             img.id === id ? { ...img, customName: newName } : img,
-    //         ),
-    //     );
-    // };
-
     const submitImages = async () => {
-        // const formData = new FormData();
         const options = {
             maxSizeMB: 1,
             maxWidthOrHeight: 1920,
@@ -181,65 +100,47 @@ export default function UploadDocument() {
         };
 
         try {
-            const compressedFiles = await Promise.all(
+            // 1. Compress images in parallel
+            const compressedEntries = await Promise.all(
                 data.images.map(async (img) => {
-                    const compresedFile = await imageCompression(
+                    const compressedFile = await imageCompression(
                         img.file,
                         options,
                     );
 
-                    return { ...img, file: compresedFile };
+                    return { ...img, file: compressedFile };
                 }),
             );
-            setData((prev) => ({ ...prev, images: compressedFiles }));
 
-            // const schemaFields = Array.isArray(jsonFieldsAndContext?.fields)
-            //     ? jsonFieldsAndContext.fields
-            //     : [];
+            transform((data) => ({
+                ...data,
+                images: compressedEntries,
+            }));
+            console.log('data:', data);
 
-            // compressedFiles.forEach((file, index) => {
-            //     const originalFileName = images[index].file.name;
-            //     formData.append(`images[${index}]`, file, originalFileName);
-            //     formData.append(
-            //         `custom_names[${index}]`,
-            //         images[index].customName ?? '',
-            //     );
-            // });
+            return;
 
-            // formData.append('fields', JSON.stringify(schemaFields));
-            // formData.append(
-            //     'context',
-            //     typeof jsonFieldsAndContext?.context === 'string'
-            //         ? jsonFieldsAndContext.context
-            //         : '',
-            // );
+            post('/imageToJson/upload', {
+                preserveState: true,
+                preserveScroll: false,
+                forceFormData: true,
 
-            // const response = await fetch('/imageToJson/upload', {
-            //     method: 'POST',
-            //     headers: {
-            //         Accept: 'application/json',
-            //         'X-CSRF-TOKEN':
-            //             (
-            //                 document.querySelector(
-            //                     'meta[name="csrf-token"]',
-            //                 ) as HTMLMetaElement
-            //             )?.content || '',
-            //     },
-            //     body: formData,
-            // });
-
-            // const responseData = await response.json();
-            // console.log('response:', responseData);
+                onSuccess: () => {
+                    console.log('Images submitted successfully');
+                },
+                onError: (errors) => {
+                    console.error('Inertia validation errors:', errors);
+                },
+            });
         } catch (error) {
-            console.error('Error processing files:', error);
-        } finally {
-            console.log('Final data to submit:', data);
+            // Catches failures during the compression phase
+            console.error('Error during image compression:', error);
         }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log(jsonFieldsAndContext);
+
         await submitImages();
     };
 
@@ -251,19 +152,11 @@ export default function UploadDocument() {
             >
                 <div className="flex h-full w-full flex-col items-center">
                     <div className="w-full max-w-xl">
-                        {/* <input
-                            type="file"
-                            ref={replaceInputRef}
-                            onChange={handleReplaceFileChange}
-                            accept="image/png, image/jpeg, image/jpg"
-                            className="hidden"
-                        /> */}
                         <label className="mb-2 block text-sm font-medium text-gray-700">
                             Upload folder or images (accepts: png, jpg & webp
                             formats)
                         </label>
 
-                        {/* Primary Upload Input Section */}
                         <FileUpload
                             value={data.images.map((img) => img.file)}
                             onValueChange={handleValueChange}
@@ -335,61 +228,56 @@ export default function UploadDocument() {
                                 ))}
                             </FileUploadList>
                         </FileUpload>
-                        <div className="mt-2 flex w-full flex-col items-end gap-2">
-                            {Array.isArray(jsonFieldsAndContext.fields) &&
-                                jsonFieldsAndContext.fields.length === 0 && (
-                                    <Alert title="Schema Required">
-                                        <AlertTitle>Schema Required</AlertTitle>
-                                        <AlertCircle />
-                                        <AlertDescription>
-                                            You haven't defined your dynamic
-                                            data structure yet. You must define
-                                            at least one schema field before
-                                            generating your final metadata
-                                            layout.
-                                        </AlertDescription>
-                                    </Alert>
-                                )}
-                        </div>
                     </div>
                 </div>
 
-                <div className="sticky bottom-6 flex flex-row justify-center gap-2">
-                    <Button
-                        type="button"
-                        variant={'outline'}
-                        onClick={() => {
-                            setOpenedFieldCreator(true);
-                        }}
-                        size={'sm'}
-                    >
-                        Define Fields
-                    </Button>
-                    <Button
-                        type="button"
-                        className="cursor-pointer shadow"
-                        onClick={() => setConfirmOpen(true)}
-                        disabled={
-                            processing ||
-                            data.images.length === 0 ||
-                            jsonFieldsAndContext?.fields.length === 0
-                        }
-                        size={'sm'}
-                    >
-                        {processing ? <Spinner /> : ' Generate Json'}
-                    </Button>
+                <div className="sticky bottom-6 flex max-w-4xl flex-col items-center justify-center gap-2">
+                    <div className="w-full max-w-xl">
+                        {Array.isArray(jsonFieldsAndContext.fields) &&
+                            jsonFieldsAndContext.fields.length === 0 && (
+                                <Alert title="Schema Required">
+                                    <AlertTitle>Schema Required</AlertTitle>
+                                    <AlertCircle />
+                                    <AlertDescription>
+                                        You haven't defined your dynamic data
+                                        structure yet. You must define at least
+                                        one schema field before generating your
+                                        final metadata layout.
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+                    </div>
+                    <div className="flex flex-row items-end gap-2">
+                        <Button
+                            type="button"
+                            variant={'secondary'}
+                            onClick={() => {
+                                setOpenedFieldCreator(true);
+                            }}
+                            className="cursor-pointer shadow"
+                            size={'sm'}
+                        >
+                            Define Fields
+                        </Button>
+                        <Button
+                            type="button"
+                            className="cursor-pointer shadow"
+                            onClick={() => setConfirmOpen(true)}
+                            disabled={
+                                processing ||
+                                data.images.length === 0 ||
+                                jsonFieldsAndContext?.fields.length === 0
+                            }
+                            size={'sm'}
+                        >
+                            {processing ? <Spinner /> : ' Generate Json'}
+                        </Button>
+                    </div>
                 </div>
-                {/* Grid Display & Inline Preview Customizations */}
-                {/* <div
-                    className={`grid w-full ${images.length > 0 && 'mb-4 flex-1'} grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4`}
-                >
-                    
-                    {images.map((img) => (
-                    ))}
-                </div> */}
             </form>
+
             <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-                <DialogContent>
+                <DialogContent className="p-4 sm:max-w-sm">
                     <DialogHeader>
                         <DialogTitle>Confirm Generate JSON</DialogTitle>
                         <DialogDescription>
@@ -397,21 +285,21 @@ export default function UploadDocument() {
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-4 py-4">
-                        <div>
-                            <div className="mt-4 flex flex-col gap-2">
-                                <Label>Api key</Label>
-                                <Input className="max-w-sm" />
-                            </div>
-                            <div className="mt-4 flex flex-col gap-px">
+                    <div className="my-4">
+                        <div className="space-y-4">
+                            <div className="flex flex-col gap-2">
                                 <Label>Context</Label>
-                                <p className="text-muted-foreground">
-                                    {jsonFieldsAndContext.context}
-                                </p>
+                                <Badge
+                                    variant="secondary"
+                                    className={`${!jsonFieldsAndContext.context && 'text-muted-foreground'} `}
+                                >
+                                    {jsonFieldsAndContext.context ??
+                                        'No custom context provided, will use default context.'}
+                                </Badge>
                             </div>
 
-                            <Label className="mt-4">Created fields</Label>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-col gap-2">
+                                <Label className="">Created fields</Label>
                                 {jsonFieldsAndContext.fields.length > 0 ? (
                                     jsonFieldsAndContext.fields.map(
                                         (f: any) => (
@@ -432,19 +320,57 @@ export default function UploadDocument() {
                                     </div>
                                 )}
                             </div>
+                            <Field className="mt-4 flex flex-col gap-2">
+                                <FieldLabel>API Key</FieldLabel>
+                                <InputGroup>
+                                    <InputGroupInput
+                                        type={showApiKey ? 'text' : 'password'}
+                                        defaultValue={data.apiKey}
+                                        onChange={(e) => {
+                                            setData('apiKey', e.target.value);
+                                        }}
+                                    />
+
+                                    <InputGroupAddon align="inline-end">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon-xs"
+                                            onClick={() =>
+                                                setShowApiKey(!showApiKey)
+                                            }
+                                        >
+                                            {showApiKey ? (
+                                                <EyeOffIcon className="h-4 w-4" />
+                                            ) : (
+                                                <EyeIcon className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                    </InputGroupAddon>
+                                </InputGroup>
+                                <FieldDescription>
+                                    Your API key is only used for this request
+                                    and is never stored in our database.
+                                </FieldDescription>
+                            </Field>
                         </div>
                     </div>
 
                     <DialogFooter>
-                        <div className="flex w-full flex-row-reverse gap-2">
-                            <DialogClose asChild>
-                                <Button variant="outline">Cancel</Button>
-                            </DialogClose>
+                        <div className="flex w-full flex-row-reverse gap-3">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setConfirmOpen(false)}
+                            >
+                                Cancel
+                            </Button>
                             <Button
                                 onClick={async () => {
                                     setConfirmOpen(false);
                                     await submitImages();
                                 }}
+                                size="sm"
+
                                 disabled={
                                     processing ||
                                     data.images.length === 0 ||

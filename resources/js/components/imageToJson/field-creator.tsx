@@ -31,7 +31,6 @@ import {
 } from '../ui/field';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Separator } from '../ui/separator';
 import { Textarea } from '../ui/textarea';
 
 const DATA_TYPES = [
@@ -169,7 +168,7 @@ export default function FieldCreator({ ...props }: DialogProps) {
                                 {fields.map((field) => (
                                     <Field
                                         key={field.id}
-                                        className={`col-span-2 grid grid-cols-[2fr_1fr_min-content] rounded bg-secondary p-4`}
+                                        className={`col-span-2 grid grid-cols-[2fr_1fr_min-content] rounded border bg-card p-4`}
                                     >
                                         <Label className="col-start-1">
                                             Field name
@@ -190,9 +189,9 @@ export default function FieldCreator({ ...props }: DialogProps) {
                                                     e.target.value,
                                                 )
                                             }
-                                            className="bg-background"
                                             placeholder="e.g., price, description, stock"
                                             required
+                                            className="dark:bg-input/30"
                                         />
 
                                         <Select
@@ -207,7 +206,7 @@ export default function FieldCreator({ ...props }: DialogProps) {
                                             defaultValue=""
                                         >
                                             <SelectTrigger
-                                                className="w-full bg-background"
+                                                className="w-full"
                                                 aria-invalid={
                                                     field.fieldType === ''
                                                 }
@@ -251,7 +250,6 @@ export default function FieldCreator({ ...props }: DialogProps) {
                                                 </FieldLabel>
                                                 <Textarea
                                                     rows={2}
-                                                    className="bg-background"
                                                     value={
                                                         Array.isArray(
                                                             field.enumValues,
@@ -298,7 +296,6 @@ export default function FieldCreator({ ...props }: DialogProps) {
                                                             e.target.value,
                                                         )
                                                     }
-                                                    className="bg-background"
                                                     placeholder="string, number, boolean"
                                                 />
                                                 <FieldDescription>
@@ -312,8 +309,7 @@ export default function FieldCreator({ ...props }: DialogProps) {
                             </div>
                         )}
 
-                        <Separator />
-                        <div className="flex w-full justify-end">
+                        <div className="flex w-full justify-end border-t pt-2">
                             <Button
                                 type="button"
                                 variant="outline"

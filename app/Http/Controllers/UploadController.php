@@ -28,13 +28,15 @@ class UploadController extends Controller
             'fields.*.enumValues' => 'nullable|array',
             'fields.*.enumValues.*' => 'nullable|string|max:255',
             'fields.*.arrayItemType' => 'nullable|string|max:50',
-            'context' => 'nullable|string',
+            'context' => 'nullable|string|max:1000',
+            'apiKey' => 'required|string|max:255',
         ]);
 
         $files = $request->file('images');
         $customNames = $request->input('custom_names', []);
         $fields = $request->input('fields');
         $context = $request->input('context');
+        $apiKey = $request->input('apiKey');
 
         $results = [];
 
@@ -46,19 +48,13 @@ class UploadController extends Controller
                 ? $rawCustomName
                 : pathinfo($originalName, PATHINFO_FILENAME);
 
-            //  Secure handle for system disk storage (Never use user input for raw path write operations)
-            // $secureStorageName = $file->hashName();
-
-            // If you want to store the file on disk:
-            // $path = $file->storeAs('raw_images', $secureStorageName);
-
             $originalName = $file->getClientOriginalName();
 
             $imageBytes = $file->getContent();
             $base64Image = base64_encode($imageBytes);
             $mimeType = $file->getClientMimeType() ?: $file->getMimeType();
 
-            $extractedData = $this->extractWithGemini($base64Image, $mimeType, $fields, $context);
+            $extractedData = $this->extractWithGemini($base64Image, $mimeType, $fields, $context, $apiKey);
 
             $results[] = [
                 'index'         => $index,
@@ -102,9 +98,8 @@ class UploadController extends Controller
         return implode(', ', $schemaParts);
     }
 
-    private function extractWithGemini(string $base64Image, string $mimeType, array $fields, ?string $userContext = null): array
+    private function extractWithGemini(string $base64Image, string $mimeType, array $fields, ?string $userContext = null, string $apiKey): array
     {
-        $apiKey = config('services.gemini.key');
 
         if (!$apiKey) {
             return ['error' => 'Gemini API key is not configured in services.php / .env'];

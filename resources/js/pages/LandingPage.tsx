@@ -56,8 +56,11 @@ export default function LandingPage() {
                                 />
                                  */}
                                 <Link
-                                    href={'/'}
-
+                                    href={
+                                        'https://github.com/JamesWithLeo/imagjon'
+                                    }
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                     className={cn(
                                         buttonVariants({
                                             variant: 'link',
