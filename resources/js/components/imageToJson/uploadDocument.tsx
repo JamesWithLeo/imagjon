@@ -1,6 +1,5 @@
-import { useForm, usePage } from '@inertiajs/react';
-import imageCompression from 'browser-image-compression';
-import { AlertCircle, EyeOffIcon, Upload, EyeIcon, X } from 'lucide-react';
+import { usePage } from '@inertiajs/react';
+import { AlertCircle, EyeOffIcon, EyeIcon } from 'lucide-react';
 import React from 'react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -12,19 +11,11 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import {
-    FileUpload,
-    FileUploadDropzone,
-    FileUploadTrigger,
-    FileUploadList,
-    FileUploadItem,
-    FileUploadItemDelete,
-    FileUploadItemMetadata,
-    FileUploadItemPreview,
-} from '@/components/ui/file-upload';
-import type { EditableImage } from '@/types/ui';
+
+import { useUploadForm } from '@/hooks/useUploadForm';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Badge } from '../ui/badge';
+import { ButtonGroup } from '../ui/button-group';
 import { Field, FieldDescription, FieldLabel } from '../ui/field';
 import {
     InputGroup,
@@ -32,117 +23,38 @@ import {
     InputGroupInput,
 } from '../ui/input-group';
 import { Label } from '../ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '../ui/select';
 import { Spinner } from '../ui/spinner';
 import FieldCreator from './field-creator';
+import LocalUpload from './local-upload';
+import RemoteUpload from './remote-upload';
 
 export default function UploadDocument() {
-    const { jsonFieldsAndContext } = usePage().props;
-    const { processing, setData, data, post, transform } = useForm({
-        images: [] as EditableImage[],
-        context: jsonFieldsAndContext?.context || '',
-        apiKey: '',
-    });
+    const { jsonFieldsAndContext, flash } = usePage().props;
+
+    const {
+        handleRemove,
+        handleSourceChange,
+        handleSubmit,
+        handleValueChange,
+        handleSetApiKey,
+        submitImages,
+        handleSetRemoveUrl,
+        currentSource,
+        data,
+        processing,
+    } = useUploadForm();
 
     const [openedFieldCreator, setOpenedFieldCreator] =
         useState<boolean>(false);
     const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
     const [showApiKey, setShowApiKey] = useState<boolean>(false);
-
-    const handleValueChange = async (incomingFiles: File[]) => {
-        setData((prevData) => {
-            // 1. Filter out duplicates based on file properties
-            const uniqueFiles = incomingFiles.filter(
-                (newFile) =>
-                    !prevData.images.some(
-                        (existing) =>
-                            existing.file.name === newFile.name &&
-                            existing.file.size === newFile.size &&
-                            existing.file.lastModified === newFile.lastModified,
-                    ),
-            );
-
-            // 2. Map unique incoming files into your EditableImage model
-            const newEntries: EditableImage[] = uniqueFiles.map((file) => ({
-                id: crypto.randomUUID(),
-                file,
-                previewUrl: URL.createObjectURL(file),
-                customName: file.name.replace(/\.[^/.]+$/, ''),
-            }));
-
-            // 3. Return the updated form state object
-            return {
-                ...prevData,
-                images: [...prevData.images, ...newEntries],
-            };
-        });
-    };
-
-    const handleRemove = (id: string) => {
-        setData((prevData) => {
-            const target = prevData.images.find((img) => img.id === id);
-
-            if (target) {
-                URL.revokeObjectURL(target.previewUrl);
-            }
-
-            return {
-                ...prevData,
-                images: prevData.images.filter((img) => img.id !== id),
-            };
-        });
-    };
-
-    const submitImages = async () => {
-        const options = {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true,
-        };
-
-        try {
-            // 1. Compress images in parallel
-            const compressedEntries = await Promise.all(
-                data.images.map(async (img) => {
-                    const compressedFile = await imageCompression(
-                        img.file,
-                        options,
-                    );
-
-                    return { ...img, file: compressedFile };
-                }),
-            );
-
-            transform((data) => ({
-                ...data,
-                images: compressedEntries,
-            }));
-            console.log('data:', data);
-
-            return;
-
-            post('/imageToJson/upload', {
-                preserveState: true,
-                preserveScroll: false,
-                forceFormData: true,
-
-                onSuccess: () => {
-                    console.log('Images submitted successfully');
-                },
-                onError: (errors) => {
-                    console.error('Inertia validation errors:', errors);
-                },
-            });
-        } catch (error) {
-            // Catches failures during the compression phase
-            console.error('Error during image compression:', error);
-        }
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        await submitImages();
-    };
 
     return (
         <>
@@ -150,84 +62,46 @@ export default function UploadDocument() {
                 onSubmit={handleSubmit}
                 className="flex min-h-full w-full max-w-4xl flex-1 grid-cols-1 flex-col items-center space-y-2 px-4 py-8 starting:opacity-0"
             >
-                <div className="flex h-full w-full flex-col items-center">
+                <div className="flex h-full w-full flex-col items-center gap-8">
+                    <div className="flex w-full max-w-xl justify-end">
+                        <Field orientation="horizontal" className="w-min">
+                            <FieldLabel>Source:</FieldLabel>
+                            <Select
+                                defaultValue={currentSource}
+                                onValueChange={handleSourceChange}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="local">
+                                        Use local files
+                                    </SelectItem>
+                                    <SelectItem value="remote">
+                                        Use remote URL
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </Field>
+                    </div>
+
                     <div className="w-full max-w-xl">
-                        <label className="mb-2 block text-sm font-medium text-gray-700">
-                            Upload folder or images (accepts: png, jpg & webp
-                            formats)
-                        </label>
-
-                        <FileUpload
-                            value={data.images.map((img) => img.file)}
-                            onValueChange={handleValueChange}
-                            accept="image/png, image/jpeg, image/jpg, image/webp"
-                            multiple
-                            className="w-full"
-                        >
-                            <FileUploadDropzone>
-                                <div className="flex flex-col items-center gap-1">
-                                    <div className="flex items-center justify-center rounded-full border p-2.5">
-                                        <Upload className="size-6 text-muted-foreground" />
-                                    </div>
-                                    <p className="text-sm font-medium">
-                                        Drag & drop files here
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        Or click to browse
-                                    </p>
-                                </div>
-                                <FileUploadTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="mt-2 w-fit"
-                                    >
-                                        Browse files
-                                    </Button>
-                                </FileUploadTrigger>
-                                {data.images.length >= 1 && (
-                                    <Badge variant={'secondary'} asChild>
-                                        <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                // setImages([]);
-                                                setData((prev) => ({
-                                                    ...prev,
-                                                    images: [],
-                                                }));
-                                            }}
-                                        >
-                                            {data.images.length} image selected
-                                            <X />
-                                        </button>
-                                    </Badge>
-                                )}
-                            </FileUploadDropzone>
-                            <FileUploadList>
-                                {data.images.map((file) => (
-                                    <FileUploadItem
-                                        key={file.id}
-                                        value={file.file}
-                                    >
-                                        <FileUploadItemPreview />
-                                        <FileUploadItemMetadata />
-
-                                        <FileUploadItemDelete asChild>
-                                            <Button
-                                                onClick={() =>
-                                                    handleRemove(file.id)
-                                                }
-                                                variant="ghost"
-                                                size="icon"
-                                                className="size-7"
-                                            >
-                                                <X />
-                                            </Button>
-                                        </FileUploadItemDelete>
-                                    </FileUploadItem>
-                                ))}
-                            </FileUploadList>
-                        </FileUpload>
+                        {currentSource === 'local' ? (
+                            <>
+                                <LocalUpload
+                                    data={data}
+                                    onValueChange={handleValueChange}
+                                    removeData={handleRemove}
+                                />
+                            </>
+                        ) : (
+                            <>
+                                <RemoteUpload
+                                    onChange={handleSetRemoveUrl}
+                                    value={data.remoteUrl}
+                                />
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -247,31 +121,43 @@ export default function UploadDocument() {
                                 </Alert>
                             )}
                     </div>
-                    <div className="flex flex-row items-end gap-2">
-                        <Button
-                            type="button"
-                            variant={'secondary'}
-                            onClick={() => {
-                                setOpenedFieldCreator(true);
-                            }}
-                            className="cursor-pointer shadow"
-                            size={'sm'}
-                        >
-                            Define Fields
-                        </Button>
-                        <Button
-                            type="button"
-                            className="cursor-pointer shadow"
-                            onClick={() => setConfirmOpen(true)}
-                            disabled={
-                                processing ||
-                                data.images.length === 0 ||
-                                jsonFieldsAndContext?.fields.length === 0
-                            }
-                            size={'sm'}
-                        >
-                            {processing ? <Spinner /> : ' Generate Json'}
-                        </Button>
+                    <div className="flex w-full items-center justify-center gap-2">
+                        <ButtonGroup className="flex justify-center">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setOpenedFieldCreator(true)}
+                                className="cursor-pointer shadow"
+                                size="sm"
+                            >
+                                Define Fields
+                            </Button>
+
+                            <Button
+                                type="button"
+                                className="cursor-pointer shadow"
+                                onClick={() => setConfirmOpen(true)}
+                                disabled={
+                                    processing ||
+                                    data.images.length === 0 ||
+                                    jsonFieldsAndContext?.fields.length === 0
+                                }
+                                size="sm"
+                            >
+                                {processing ? <Spinner /> : 'Generate Json'}
+                            </Button>
+                        </ButtonGroup>
+
+                        {/* Conditionally rendered output button sitting directly beside Generate JSON */}
+                        {flash?.success && flash.results && (
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                className="shadow"
+                            >
+                                Output
+                            </Button>
+                        )}
                     </div>
                 </div>
             </form>
@@ -326,9 +212,9 @@ export default function UploadDocument() {
                                     <InputGroupInput
                                         type={showApiKey ? 'text' : 'password'}
                                         defaultValue={data.apiKey}
-                                        onChange={(e) => {
-                                            setData('apiKey', e.target.value);
-                                        }}
+                                        onChange={(e) =>
+                                            handleSetApiKey(e.target.value)
+                                        }
                                     />
 
                                     <InputGroupAddon align="inline-end">
@@ -365,12 +251,11 @@ export default function UploadDocument() {
                                 Cancel
                             </Button>
                             <Button
-                                onClick={async () => {
-                                    setConfirmOpen(false);
+                                size="sm"
+                                onClick={async (e) => {
+                                    e.preventDefault();
                                     await submitImages();
                                 }}
-                                size="sm"
-
                                 disabled={
                                     processing ||
                                     data.images.length === 0 ||

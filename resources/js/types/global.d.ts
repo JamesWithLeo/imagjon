@@ -8,13 +8,21 @@ declare module 'react' {
     }
 }
 
+export interface FlashProps {
+    success?: string | null;
+    error?: string | null;
+    results?: any;
+}
+
 declare module '@inertiajs/core' {
     export interface InertiaConfig {
         sharedPageProps: {
             name: string;
             auth: Auth;
             sidebarOpen: boolean;
+            fieldCreatorModalOpen: boolean;
             jsonFieldsAndContext: { fields: JsonFieldItem[]; context: string };
+            flash: FlashProps;
             [key: string]: unknown;
         };
     }

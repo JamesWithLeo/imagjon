@@ -66,7 +66,7 @@ class UploadController extends Controller
         }
 
         // Return the full array directly back to React state to be shown in the Modal
-        return response()->json($results);
+        return redirect()->back()->with('results', $results);
     }
 
     private function buildFieldSchemaDescription(array $fields): string
