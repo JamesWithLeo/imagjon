@@ -1,19 +1,16 @@
 import { useForm, usePage } from '@inertiajs/react';
 import imageCompression from 'browser-image-compression';
-import { useState } from 'react';
 import type { EditableImage } from '@/types';
 
 export function useUploadForm() {
     const { jsonFieldsAndContext, flash } = usePage().props;
-
-    const [currentSource, setCurrentSource] = useState<string>('local');
 
     const { processing, setData, data, post, transform } = useForm({
         images: [] as EditableImage[],
         remoteUrl: '',
         context: jsonFieldsAndContext?.context || '',
         apiKey: '',
-        source: currentSource,
+        source: 'local',
     });
 
     const handleValueChange = async (incomingFiles: File[]) => {
@@ -77,7 +74,7 @@ export function useUploadForm() {
         });
     };
     const handleSourceChange = (value: string) => {
-        setCurrentSource(value);
+        setData((prev) => ({ ...prev, source: value }));
     };
 
     const submitImages = async () => {
@@ -91,7 +88,7 @@ export function useUploadForm() {
             // 1. Compress images in parallel
             let compressedEntries: EditableImage[] = [];
 
-            if (currentSource === 'local') {
+            if (data.source === 'local') {
                 compressedEntries = await Promise.all(
                     data.images.map(async (img) => {
                         const compressedFile = await imageCompression(
@@ -104,24 +101,30 @@ export function useUploadForm() {
                 );
             }
 
-            transform((data) => ({
-                ...data,
-                images: compressedEntries,
+            transform((formData) => ({
+                ...formData,
+                source: data.source,
+                images: data.source === 'local' ? compressedEntries : [],
             }));
 
-            post('/imageToJson/upload', {
-                preserveState: true,
-                preserveScroll: false,
-                forceFormData: true,
+            post(
+                data.source === 'local'
+                    ? '/imageToJson/local'
+                    : '/imageToJson/remote',
+                {
+                    preserveState: true,
+                    preserveScroll: false,
+                    forceFormData: true,
 
-                onSuccess: () => {
-                    const results = flash?.results;
-                    console.log('Images submitted successfully:', results);
+                    onSuccess: () => {
+                        const results = flash?.results;
+                        console.log('Images submitted successfully:', results);
+                    },
+                    onError: (errors) => {
+                        console.error('Inertia validation errors:', errors);
+                    },
                 },
-                onError: (errors) => {
-                    console.error('Inertia validation errors:', errors);
-                },
-            });
+            );
         } catch (error) {
             // Catches failures during the compression phase
             console.error('Error during image compression:', error);
@@ -143,7 +146,6 @@ export function useUploadForm() {
         handleSetRemoveUrl,
         submitImages,
         processing,
-        currentSource,
         data,
     };
 }

@@ -46,10 +46,18 @@ export default function UploadDocument() {
         handleSetApiKey,
         submitImages,
         handleSetRemoveUrl,
-        currentSource,
         data,
         processing,
     } = useUploadForm();
+
+    const remoteUrls = data.remoteUrl
+        .split(/[\r\n,]+/)
+        .map((url) => url.trim())
+        .filter(Boolean);
+    const isReadyToSubmit =
+        data.source === 'local'
+            ? data.images.length > 0
+            : remoteUrls.length > 0;
 
     const [openedFieldCreator, setOpenedFieldCreator] =
         useState<boolean>(false);
@@ -67,7 +75,7 @@ export default function UploadDocument() {
                         <Field orientation="horizontal" className="w-min">
                             <FieldLabel>Source:</FieldLabel>
                             <Select
-                                defaultValue={currentSource}
+                                defaultValue={data.source}
                                 onValueChange={handleSourceChange}
                             >
                                 <SelectTrigger>
@@ -86,7 +94,7 @@ export default function UploadDocument() {
                     </div>
 
                     <div className="w-full max-w-xl">
-                        {currentSource === 'local' ? (
+                        {data.source === 'local' ? (
                             <>
                                 <LocalUpload
                                     data={data}
@@ -139,7 +147,7 @@ export default function UploadDocument() {
                                 onClick={() => setConfirmOpen(true)}
                                 disabled={
                                     processing ||
-                                    data.images.length === 0 ||
+                                    !isReadyToSubmit ||
                                     jsonFieldsAndContext?.fields.length === 0
                                 }
                                 size="sm"
@@ -167,7 +175,9 @@ export default function UploadDocument() {
                     <DialogHeader>
                         <DialogTitle>Confirm Generate JSON</DialogTitle>
                         <DialogDescription>
-                            {data.images.length} image(s) will be processed.
+                            {data.source === 'local'
+                                ? `${data.images.length} image(s) will be processed.`
+                                : `${remoteUrls.length} remote URL(s) will be processed.`}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -258,7 +268,7 @@ export default function UploadDocument() {
                                 }}
                                 disabled={
                                     processing ||
-                                    data.images.length === 0 ||
+                                    !isReadyToSubmit ||
                                     jsonFieldsAndContext.fields.length === 0
                                 }
                             >
